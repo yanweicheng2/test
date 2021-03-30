@@ -1,0 +1,896 @@
+module digital_top   (  /*AUTOARG*/);
+
+// crystal in & power-on-reset
+//    input    clk_osc;
+//    input    ext_rst_n;
+
+
+// IOs
+parameter GPIO_NUM = 99;
+parameter GPIO_NUM_ALL = 112;
+@include "top_io.ep3"
+@perl_begin
+     print_io_pad()
+@perl_end
+
+    input    pcie_refclk_p;
+    input    pcie_refclk_n;
+    input [3:0] pcie_rxp;
+    input [3:0] pcie_rxn;
+    output [3:0] pcie_txp;
+    output [3:0] pcie_txn;
+
+output           ddr4_act_n;
+output [1:0]     ddr4_cke;
+output [1:0]     ddr4_odt;
+output [1:0]     ddr4_ba;
+output [1:0]     ddr4_bg;
+output [17:0]    ddr4_adr;
+output           ddr4_reset_n;
+output           ddr4_ck_t;
+output           ddr4_ck_c;
+output [1:0]     ddr4_cs_n;
+output           ddr4_par;
+
+inout [63:0]     ddr4_dq;
+inout [7:0]      ddr4_dqs_t;
+inout [7:0]      ddr4_dqs_c;
+inout [7:0]      ddr4_dm_dbi_n;
+inout            ddr4_alert_n;
+
+
+// GPIOs
+// @include "chip_io.ep3"
+//
+// @perl_begin
+// foreach $io (@list_gpio_pad)  {
+//    print_io_declar_out(${io})
+// }
+// @perl_end
+
+
+  /*AUTOWIRE*/
+  wire  ptest_ana_mode = 1'b0; 
+  wire  ptest_icg_mode = 1'b0;
+    wire ptest_bist_mode = 1'b0;
+    wire ptest_scan_mode = 1'b0;
+    wire ptest_scan_se = 1'b0;
+    wire ptest_scan_dc_mode = 1'b0;
+
+    wire clk_tck = TCK_in;
+  //  wire arm_TDI = 0;
+  //  wire arm_TMS = 0;
+    wire rst_tck_n = TRSTN_in;
+  //  wire arm_TDO;
+  //  wire arm_TDOEn;
+
+    wire [63:2] int_req_irq_src;
+
+    //wire [34:0]           HADDR_dbg;
+    wire [34:0]           AWADDR_pcie;
+    wire [34:0]           ARADDR_pcie;
+    wire [9:0]           BID_pcie_slv;
+    wire [9:0]           RID_pcie_slv;
+    wire [34:0]         AWADDR_emmc;
+    wire [34:0]         ARADDR_emmc;
+    wire [7:0]         AWLEN_emmc;
+    wire [7:0]         ARLEN_emmc;
+
+    wire                     clk_osc;
+    wire                     rst_osc_n;
+
+    wire                     rst_scan_n = RESETN_in;
+    wire                     clk_scan   = 1'b0;
+
+
+    wire HREADYS0_ahb_dbg   ;
+    wire HREADYS1_ahb_dbg   ;
+    wire HREADYOUTM0_ahb_dbg;
+    wire [31:0] dma_req;
+    wire [31:0] dma_single;
+    wire [31:0] dma_ack;
+    wire [1:0] HRESP_mbox_cfg;
+/* cm4_top AUTO_TEMPLATE (
+  .clk_arm         (clk_arm_ahb),
+  .rst_arm_.*      (rst_arm_n),
+  .ram_cfg_1p      (ram_cfg_1p_sys[]),
+
+  .HREADY_cm4_\(.*\)    (HREADYOUT_cm4_\1),
+  .HREADYout_cm4_\(.*\) (HREADYout_m2s_cm4_\1),
+
+  .ntrst            (cm4_ntrst),
+  .swditms          (cm4_swditms),
+  .swclktck         (cm4_swclktck),
+  .tdi              (cm4_tdi),
+  .swdo             (cm4_swdo),
+  .swdoen           (cm4_swdoen),
+  .jtagnsw          (cm4_jtagnsw),
+  .tdo              (cm4_tdo),
+  .ntdoen           (cm4_ntdoen),
+  );
+  */
+
+// cm4_top #(.NUM_IRQ(NUM_IRQ))  u_cm4_top     (/*AUTOINST*/);
+
+/* cpu_sys AUTO_TEMPLATE (
+ .clk_arm         (clk_arm_ahb),
+ .rst_arm_.*      (rst_arm_n),
+
+ .HREADY_cpu_\(.*\)    (HREADYOUT_cpu_\1),
+ .HREADYout_cpu_\(.*\) (HREADYout_m2s_cpu_\1),
+
+ .T\(.*\)         (arm_T\1),
+
+ .nFIQ            (int_req_fiq_n),
+ .nIRQ            (int_req_irq_n),
+
+ .\(ram_cfg_.\)   (\1_sys),
+ );
+ */
+
+//cpu_sys  u_cpu_sys     (/*AUTOINST*/);
+
+
+// Main AHB Matrix
+ /* ahb_main_mtx AUTO_TEMPLATE (
+
+  .SCANENABLE      (ptest_scan_mode),
+  .SCANINHCLK      (1'b0),
+
+  .HCLK            (clk_ahb),
+  .HRESETn         (rst_ahb_n),
+
+  .REMAP           (4'b0001),
+  .HMASTERS\(.*\)  (@"vl-width"'d\1),
+  .HMASTER_i2c_slv  (@"vl-width"'d3),
+
+  .HREADYS0        (HREADYout_m2s_cpu_i),
+  .HREADYS1        (HREADYout_m2s_cpu_d),
+  .HREADYS2        (HREADYOUT_pcie),
+
+  .HPROTS5         (4'h0),            // pcie
+  .HRESPM2         ({1'b0,HRESP_apb_per}),
+  .HRESPM4         ({1'b0,HRESP_dmc}),
+
+  .HREADYMUXM1                                (HREADY_ahb_per),
+  .\(H.*\)S0       (\1_cpu_i[]),
+  .\(H.*\)S1       (\1_cpu_d[]),
+  .\(H.*\)S2       (\1_pcie[]),
+
+  .\(H.*\)M0       (\1_rom[]),
+  .\(H.*\)M1       (\1_ahb_per[]),
+  .\(H.*\)M2       (\1_apb_per[]),
+  .\(H.*\)M3       (\1_sram[]),
+  .\(H.*\)M4       (\1_dmc[]),
+  .\(H.*\)M5       (\1_spiflash[]),
+
+ );
+ */
+
+//ahb_main_mtx u_ahbmtx(/*AUTOINST*/);
+
+//dma
+/* dma_wrapper AUTO_TEMPLATE (
+  .dmac_core_resetn (rst_axi_n),
+  .dmac_core_clock  (clk_axi),
+  .hclk             (clk_ahb),
+  .hresetn          (rst_ahb_n),
+  .\(a\|b\|r\|w\)\(.*\)_m1          (@"(upcase \\"\1\2\\")"_dma[]),
+  .hready       (HREADYin_dma_cfg),
+  .hready_resp  (HREADYout_dma_cfg),
+  .\(h.*\) (@"(upcase \\"\1\\")"_dma_cfg[]),
+  .intr       (int_req_dma),
+  .dma_single (dma_single[31:0]),
+  .dma_ack    (dma_ack[31:0]),
+  .dma_req    (dma_req[31:0]),
+  .dma_last   (32'h0),
+  .dma_finish (),
+ );
+ */
+
+dma_wrapper u_dma_wrapper(/*AUTOINST*/);
+
+//dma req declar
+
+assign dma_req[31:0] = {    12'b0,
+                            dma_req_i2c3_tx , //19
+                            dma_req_i2c3_rx , //18
+                            dma_req_i2c2_tx , //17
+                            dma_req_i2c2_rx , //16
+                            dma_req_aximon_top3,//15
+                            dma_req_aximon_top2,//14
+                            dma_req_aximon_top1,//13
+                            dma_req_aximon_top0,//12
+                            dma_req_uart0_tx, //11
+                            dma_req_uart0_rx, //10
+                            dma_req_uart1_tx, //9
+                            dma_req_uart1_rx, //8
+                            dma_req_spi0_tx , //7
+                            dma_req_spi0_rx , //6
+                            dma_req_spi1_tx , //5
+                            dma_req_spi1_rx , //4
+                            dma_req_i2c0_tx , //3
+                            dma_req_i2c0_rx , //2
+                            dma_req_i2c1_tx , //1
+                            dma_req_i2c1_rx   //0
+                            };
+assign dma_single[31:0] = { 12'b0,
+                            dma_single_i2c3_tx , //19
+                            dma_single_i2c3_rx , //18
+                            dma_single_i2c2_tx , //17
+                            dma_single_i2c2_rx , //16
+                            1'b0,//15
+                            1'b0,//14
+                            1'b0,//13
+                            1'b0,//12
+                            dma_single_uart0_tx, //11
+                            dma_single_uart0_rx, //10
+                            dma_single_uart1_tx, //9
+                            dma_single_uart1_rx, //8
+                            1'b0 , //7
+                            1'b0 , //6
+                            1'b0 , //5
+                            1'b0 , //4
+                            dma_single_i2c0_tx , //3
+                            dma_single_i2c0_rx , //2
+                            dma_single_i2c1_tx , //1
+                            dma_single_i2c1_rx   //0
+                            };
+
+
+assign dma_ack_i2c3_tx  = dma_ack[19];
+assign dma_ack_i2c3_rx  = dma_ack[18];
+assign dma_ack_i2c2_tx  = dma_ack[17];
+assign dma_ack_i2c2_rx  = dma_ack[16];
+assign dma_ack_aximon_top3 = dma_ack[15];
+assign dma_ack_aximon_top2 = dma_ack[14];
+assign dma_ack_aximon_top1 = dma_ack[13];
+assign dma_ack_aximon_top0 = dma_ack[12];
+assign dma_ack_uart0_tx = dma_ack[11];
+assign dma_ack_uart0_rx = dma_ack[10];
+assign dma_ack_uart1_tx = dma_ack[9];
+assign dma_ack_uart1_rx = dma_ack[8];
+assign dma_ack_spi0_tx  = dma_ack[7];
+assign dma_ack_spi0_rx  = dma_ack[6];
+assign dma_ack_spi1_tx  = dma_ack[5];
+assign dma_ack_spi1_rx  = dma_ack[4];
+assign dma_ack_i2c0_tx  = dma_ack[3];
+assign dma_ack_i2c0_rx  = dma_ack[2];
+assign dma_ack_i2c1_tx  = dma_ack[1];
+assign dma_ack_i2c1_rx  = dma_ack[0];
+
+
+
+
+/*nic400_main_mtx AUTO_TEMPLATE (
+ .HSELx_\(.*\)       (HSEL_\1),
+ .HREADYOUT_\(.*\)   (HREADYout_\1),
+ .HREADY_\(.*\)      (HREADY_\1),
+ .HRESP_ahb_bridge   (HRESP_ahb_bridge),
+ .HRESP_\(.*\)       (HRESP_\1[0]),
+ .HADDR_dbg          ({dbg_addr_h[2:0],HADDR_dbg[31:0]}),
+ .aclk               (clk_axi),
+ .aresetn            (rst_axi_n),
+ .dbgclk             (clk_ahb),
+ .dbgresetn          (rst_ahb_n),
+ .hclk               (clk_ahb),
+ .hresetn            (rst_ahb_n),
+ .pubclk             (clk_ddr),
+ .pubresetn          (rst_ddr_n),
+ .AWID_ca53          ({1'b0,AWID_ca53[4:0]}),
+
+ );
+ */
+
+nic400_main_mtx u_nic400_main_mtx(/*AUTOINST*/);
+
+
+
+
+
+//ca53_sys
+/* ca53_sys AUTO_TEMPLATE (
+ .clk_arm       (clk_arm),
+ .clk_dbg       (clk_ahb),
+ .rst_dbg_n     (rst_ahb_n),
+ .rst_arm_dbg_n (rst_arm_dbg_n),
+ .clk_axi       (clk_axi),
+ .rst_axi_n     (rst_axi_n),
+ .clk_osc_ts    (clk_osc),
+ .rst_arm_n     (rst_arm_n),
+ .rst_ahb_n     (rst_ahb_n),
+ .rst_arm_por_n (rst_arm_n),//TODO
+ .rst_arm_dbg_n (rst_arm_n),
+ .rst_osc_ts_n  (rst_osc_n),
+ .rst_dbg_por_n (rst_ahb_n),
+ .rst_dbg_n     (rst_ahb_n),
+ .HRESP_dap     (HRESP_dap[0]),
+ .HREADY_dap    (HREADYout_dap),
+ .gic_irqs        ({int_req_irq_src[63:2],2'h0}),
+ .DFT_SE (ptest_scan_mode),
+ .DFT.*   (1'b0),
+ .MBISTREQ (1'b0),
+ .nMBISTRESET (1'b1),
+ .ram_cfg_1p    (ram_cfg_1p_sys[]),
+
+ );
+ */
+
+ca53_sys u_cpu_sys(/*AUTOINST*/);
+
+
+
+
+//===========================================
+//   sram instance
+//===========================================
+/* xhb400_32bit  AUTO_TEMPLATE (
+    .HREADY (HREADYout_sram),
+    .HRESP                                      (HRESP_sram[0]),
+   .\(H.*\)       (\1_sram[]),
+   .\(A\|B\|R\|W\)\(.*\)       (\1\2_sram[]),
+);
+*/
+
+
+//xhb400_32bit u_xhb400_sram(/*AUTOINST*/);
+
+//x2h
+/* DW_axi_x2h  AUTO_TEMPLATE (
+    .aclk         (clk_ahb),
+    .aresetn      (rst_ahb_n),
+    .mhclk        (clk_ahb),
+    .mhresetn     (rst_ahb_n),
+
+    .mhresp       (HRESP_sram[1:0]),
+    .mhready      (HREADYout_sram),
+    .m\(h.*\)       (@"(upcase \\"\1\\")"_sram[]),
+   .\(a\|b\|r\|w\)\(.*\)       (@"(upcase \\"\1\2\\")"_sram[]),
+);
+*/
+
+DW_axi_x2h u_DW_axi_x2h_sram(/*AUTOINST*/);
+
+
+/* ahb2sram_wrap AUTO_TEMPLATE (
+ .HCLK            (clk_ahb),
+ .HRESETn          (rst_ahb_n),
+ .HREADYin      (HREADYout_sram),
+
+ .HSEL                                       (1'b1),
+ .\(H.*\)       (\1_sram[]),
+ .ram_cfg_1p      (ram_cfg_1p_sys[]),
+ );
+ */
+
+
+ahb2sram_wrap sram (/*AUTOINST*/);
+
+
+//===========================================
+//  rom instance
+//===========================================
+
+
+/* ahb2rom_wrap AUTO_TEMPLATE (
+ .HCLK          (clk_ahb),
+ .HRESETn       (rst_ahb_n),
+ .HREADYin      (HREADY_rom),
+ .\(H.*\)         (\1_rom[]),
+ .ram_cfg_1p      (ram_cfg_1p_sys[]),
+ );
+ */
+ahb2rom_wrap rom (/*AUTOINST*/);
+
+//===========================================
+//   spiflash instance
+//===========================================
+/* xhb400_32bit  AUTO_TEMPLATE (
+    .HRESP                                      (HRESP_spiflash[0]),
+    .HREADY (HREADYout_spiflash),
+   .\(H.*\)       (\1_spiflash[]),
+   .\(A\|B\|R\|W\)\(.*\)       (\1\2_spiflash[]),
+);
+*/
+
+
+//xhb400_32bit u_xhb400_spiflash(/*AUTOINST*/);
+
+//x2h
+/* DW_axi_x2h  AUTO_TEMPLATE (
+    .aclk         (clk_ahb),
+    .aresetn      (rst_ahb_n),
+    .mhclk        (clk_ahb),
+    .mhresetn     (rst_ahb_n),
+
+    .mhresp       (HRESP_spiflash[1:0]),
+    .mhready      (HREADYout_spiflash),
+    .m\(h.*\)       (@"(upcase \\"\1\\")"_spiflash[]),
+   .\(a\|b\|r\|w\)\(.*\)       (@"(upcase \\"\1\2\\")"_spiflash[]),
+);
+*/
+
+DW_axi_x2h u_DW_axi_x2h_spiflash(/*AUTOINST*/);
+
+ /* spiflash_top AUTO_TEMPLATE (
+  .scan_mode        (ptest_scan_mode),
+  .scan_ebb         (ptest_scan_se),
+  .reg_clk_force_on (1'b1),
+
+  .spiflash_clk     (clk_spiflash),
+  .spiflash_rstn    (rst_spiflash_n),
+  .hclk             (clk_ahb_spiflash),
+  .hresetn          (rst_ahb_spiflash_n),
+
+  .nand_sel_from_pin (1'b0),
+
+  .spi_clk              (pad_out_spiflash_clk),
+  .spi_so\(.*\)         (pad_out_spiflash_d[\1]),
+  .spi_si\(.*\)         (pad_in_spiflash_d[\1]),
+  .spi_csb0        (pad_out_spiflash_csn),
+  .spi_csb1        (),
+  .spi_oenb\(.*\)  (spi_oenb[\1]),
+  .scan_en (ptest_scan_se),
+
+  .hready_out_reg       (HREADYout_spiflash_cfg) ,
+  .hready_reg           (HREADYin_spiflash_cfg)  ,
+  .\(h.*\)_reg          (@"(upcase \\"\1\\")"_spiflash_cfg[]),
+
+  .hsel_flash           (1'b1),
+  .hready_out           (HREADYout_spiflash)      ,
+  .hready               (HREADYout_spiflash)      ,
+  .\(h.*\)              (@"(upcase \\"\1\\")"_spiflash[]),
+  );
+ */
+spiflash_top u_spiflash_top (/*AUTOINST*/);
+
+
+// video encoder subsystem
+ /* ve_sys AUTO_TEMPLATE (
+  .clk_ve            (clk_ve),
+  .clk_axi           (clk_ddr),
+  .rst_axi_n         (rst_ddr_n),
+
+ .\(H.*\)       (\1_ve_cfg[]),
+  .\(A\|B\|R\|W\)\(.*\)       (\1\2_ve[]),
+ );
+ */
+ve_sys   u_ve_sys (/*AUTOINST*/);
+
+// video preprocessing subsystem
+/* vpp_sys AUTO_TEMPLATE (
+ .HCLK            (clk_ahb),
+ .HRESETn         (rst_ahb_n),
+ .ACLK            (clk_ddr),
+ .ARESETn         (rst_ddr_n),
+ .ram_cfg_1p      (ram_cfg_1p_sys[]),
+ .ram_cfg_2p      (ram_cfg_2p_sys[]),
+ .\(H.*\)       (\1_vpp_cfg[]),
+ .\(A\|B\|R\|W\)\(.*\)       (\1\2_vpp[]),
+ );
+ */
+vpp_sys  u_vpp_sys (/*AUTOINST*/);
+
+
+// pcie_sys
+/* pcie_sys AUTO_TEMPLATE (
+ .clk_axi         (clk_axi),
+ .rst_axi_n       (rst_axi_n),
+ .msi_int         ({int_req_irq_src[31:2],2'h0}),
+ .\(ram_cfg_.*\)   (\1_sys[]),
+ .sys_int         (~int_req_irq_n),   
+
+ .HREADY_pcie     (HREADYOUT_pcie),
+ .\(H.*\)_pcie    (\1_pcie[]),
+ .\(H.*\)         (\1_pcie_cfg[]),
+ .\(mstr_\)\(.*\) (@"(upcase \\"\2\\")"_pcie[]),
+ .slv_\(.*\)      (@"(upcase \\"\1\\")"_pcie_slv[]),
+ );
+ */
+pcie_sys  u_pcie_sys (/*AUTOINST*/);
+
+
+// dmc_sys
+/* dmc_sys AUTO_TEMPLATE (
+ .\(H.*\)_cfg       (\1_dmc_cfg[]),
+ .\(.*QOS_.*\)     (4'h0),
+ .ram_cfg_1p       (ram_cfg_1p_sys[]),
+ .ram_cfg_2p       (ram_cfg_2p_sys[]),
+  .dma_single_0(dma_req_aximon_top0),
+  .dma_ack_0(dma_ack_aximon_top0),
+  .dma_single_1(dma_req_aximon_top1),
+  .dma_ack_1(dma_ack_aximon_top1),
+  .dma_single_2(dma_req_aximon_top2),
+  .dma_ack_2(dma_ack_aximon_top2),
+  .dma_single_3(dma_req_aximon_top3),
+  .dma_ack_3(dma_ack_aximon_top3),
+  .AWADDR_ai({2'b00,AWADDR_ai[31:0]}),
+  .ARADDR_ai({2'b00,ARADDR_ai[31:0]}),
+  .PwrOkIn(rst_ddr_n),
+  .BP_ZN_SENSE(1'b0),
+ );
+ */
+
+
+dmc_sys  u_dmc_sys (/*AUTOINST*/);
+
+
+/* VIVANTE_VIP AUTO_TEMPLATE (
+.GPU_ID (4'h0),
+.IN_DST_GPU_ID (4'h0),
+.SEMA_IN_ID    (4'h0),
+.SEMA_IN_VLD   (1'b0),
+.SEMA_OUT_ACK  (),
+.OUT_DST_GPU_ID (),
+.SEMA_IN_ACK    (),
+.SEMA_OUT_ID    (),
+.SEMA_OUT_VLD   (),
+.CSYSREQ (1'b1),
+.CACTIVE (),
+.CSYSACK (),
+.DEBUG_OUT (),
+.ACLK    (clk_ddr),
+.ARESETn (rst_ddr_n),
+.clkCore (clk_ai),
+.HCLK    (clk_ahb),
+.HRESETn (rst_ahb_n),
+.resetPin_ (rst_ai_n),
+.testMode (ptest_scan_mode),
+.disableRamClockGating (1'b1),
+.HREADY   (HREADYin_ai_cfg),
+.\(H.*\)  (\1_ai_cfg),
+.xaq2_intr (int_req_ai),
+.\(A\|B\|R\|W\)\(.*\)       (\1\2_ai[]),
+  );
+*/
+//AI sys
+ai_sys u_ai_sys(/*AUTOINST*/);
+
+//VIVANTE_VIP u_ai_sys(/*AUTOINST*/);
+
+assign HRESP_mbox_cfg[1:0] = 2'h0;
+
+//===========================================
+//   ahb_per axi2ahb instance
+//===========================================
+/* xhb400_32bit  AUTO_TEMPLATE (
+    .HREADY (HREADYout_ahb_per),
+    .HRESP                                      (HRESP_ahb_per[0]),
+   .\(H.*\)       (\1_ahb_per[]),
+   .\(A\|B\|R\|W\)\(.*\)       (\1\2_ahb_per[]),
+);
+*/
+
+
+//xhb400_32bit u_xhb400_ahb_per(/*AUTOINST*/);
+
+//x2h
+/* DW_axi_x2h  AUTO_TEMPLATE (
+    .aclk         (clk_ahb),
+    .aresetn      (rst_ahb_n),
+    .mhclk        (clk_ahb),
+    .mhresetn     (rst_ahb_n),
+
+    .mhresp       (HRESP_ahb_per[1:0]),
+    .mhready      (HREADYout_ahb_per),
+    .m\(h.*\)       (@"(upcase \\"\1\\")"_ahb_per[]),
+   .\(a\|b\|r\|w\)\(.*\)       (@"(upcase \\"\1\2\\")"_ahb_per[]),
+);
+*/
+
+DW_axi_x2h u_DW_axi_x2h_ahb_per(/*AUTOINST*/);
+
+
+// AHB peripherals
+/* ahb_per_top AUTO_TEMPLATE (
+
+ // to Main Matrix
+ .HREADY        (HREADYout_ahb_per),
+ .HMASTER       (4'h0),
+ // from subsystems
+ .HREADY_\(.*\)_cfg       (HREADYout_\1_cfg[]),
+ .HREADYMUX_ve_cfg     (HREADY_ve_cfg),
+ .HSEL             (1'b1),
+ .\(H.*cfg\)       (\1[]),
+ .\(H.*\)          (\1_ahb_per[]),
+
+ );
+ */
+ahb_per_top  u_ahb_per     (/*AUTOINST*/);
+
+//===========================================
+//   apb_per axi2ahb instance
+//===========================================
+/* xhb400_32bit  AUTO_TEMPLATE (
+    .HREADY (HREADYout_apb_per),
+    .HRESP                                      (HRESP_apb_per),
+   .\(H.*\)       (\1_apb_per[]),
+   .\(A\|B\|R\|W\)\(.*\)       (\1\2_apb_per[]),
+);
+*/
+
+
+//xhb400_32bit u_xhb400_apb_per(/*AUTOINST*/);
+
+//x2h
+/* DW_axi_x2h  AUTO_TEMPLATE (
+    .aclk         (clk_ahb),
+    .aresetn      (rst_ahb_n),
+    .mhclk        (clk_ahb),
+    .mhresetn     (rst_ahb_n),
+
+    .mhresp       ({1'b0,HRESP_apb_per}),
+    .mhready      (HREADYout_apb_per),
+    .m\(h.*\)       (@"(upcase \\"\1\\")"_apb_per[]),
+   .\(a\|b\|r\|w\)\(.*\)       (@"(upcase \\"\1\2\\")"_apb_per[]),
+);
+*/
+
+DW_axi_x2h u_DW_axi_x2h_apb_per(/*AUTOINST*/);
+
+
+// APB peripherals
+ /* apb_per_top AUTO_TEMPLATE (
+
+  .HREADYin      (HREADYout_apb_per),
+  .pad_in_gpio   ({{{GPIO_NUM_ALL-GPIO_NUM}{1'h0}},pad_in_gpio[GPIO_NUM-1:0]}),
+  .pad_in_uart1_ctsn           (1'b1),
+  .pad_in_uart0_ctsn           (1'b1),
+    .HSEL             (1'b1),
+  .\(H.*\)          (\1_apb_per[]),
+    .pready_busmon_vpp                          (1'b1),
+    .prdata_busmon_vpp                          (32'h0),
+    .pready_busmon_pcie                         (1'b1),
+    .prdata_busmon_pcie                         (32'h0),
+    .pready_busmon_ve                           (1'b1),
+    .prdata_busmon_ve                           (32'h0),
+ );
+ */
+apb_per_top #(.GPIO_NUM_ALL(GPIO_NUM_ALL))
+u_apb_per     (/*AUTOINST*/);
+
+assign int_req_irq_src[63:2] = {  32'h0,
+                                  msi_ctrl_int,     //31  
+                                  radm_inta,//30  
+                                  radm_intb,//29  
+                                  radm_intc,//28  
+                                  radm_intd,//27  
+                                  int_req_i2c0,   //26
+                                  int_req_i2c1,   //25
+                                  int_req_vcd_l2cache, //24
+                                  int_req_vcd,         //23
+                                  int_req_vpp_sc, //22
+                                  int_req_vpp_bsg,//21
+                                  2'b00,
+                                  int_req_dma,    //18 
+                                  int_req_cutree, //17
+                                  int_req_dmc,    //16
+                                  int_req_gpio,   //15
+                                  int_req_i2c0,   //14
+                                  int_req_i2c1,   //13
+                                  int_req_khv,    //12
+                                  int_req_pcie,   //11
+                                  int_req_spi0,   //10
+                                  int_req_spi1,   //9
+                                  int_req_tmr0,   //8
+                                  int_req_tmr1,   //7
+                                  int_req_tmr2,   //6
+                                  int_req_uart0,  //5
+                                  int_req_uart1,  //4
+                                  1'b0,    //3
+                                  int_req_wdt     //2
+                                  };
+//assign int_req_fiq_src[31:2] = int_req_irq_src[31:2];
+
+
+/* dbg_sys AUTO_TEMPLATE (
+ .pclk           (clk_ahb),
+ .presetn        (rst_ahb_n),
+ .vpp_dbg_signal                             (32'h0),
+ .ve_dbg_signal                              (32'h0),
+ .ai_dbg_signal                              (32'h0),
+ .ddr_dbg_signal                             (32'h0),
+ );
+ */
+dbg_sys  u_dbg_sys (/*AUTOINST*/);
+
+/* intc_top AUTO_TEMPLATE (
+  .PCLK    (clk_ahb),
+  .PRESETn (rst_ahb_n),
+  .int_req_irq_src0 (1'b0), //TODO
+  .\(P.*\)       (@"(downcase \\"\1\\")"_intc[]),
+  .\(H.*\)       (\1_intc[]),
+ );
+ */
+intc_top u_intc_top (/*AUTOINST*/);
+
+
+/* clk_top AUTO_TEMPLATE (
+  .ext_rst_n                                  (RESETN_in),
+  .clk_test (pad_out_clk_test),
+ );
+ */
+clk_top  u_clk_top     (/*AUTOINST*/);
+
+// pinmuxes here
+/* io_mux AUTO_TEMPLATE (
+ .pad_ie_spi._di                                (1'b1),
+ .pad_oe_spi._di                                (1'b0),
+ .pad_out_spi._di                               (1'b0),
+ .pad_ie_spiflash_d                        (spi_oenb[]),
+ .pad_oe_spiflash_clk                           (1'b1),
+ .pad_oe_spiflash_d                        (~spi_oenb[]),
+ .pad_ie_tms (1'b1),
+ .pad_in_boot_mode (boot_mode[]),
+ );
+ */
+io_mux    #(.GPIO_NUM(GPIO_NUM))
+u_io_mux  (/*AUTOINST*/);
+
+/* i2c_slave_top  AUTO_TEMPLATE (
+ .i2c_slv_id ({4'b0010,pad_in_chip_id[2:0]}),
+ .HREADYOUT  (HREADYout_i2c_slv),
+ .\(H.*\)    (\1_i2c_slv[]),
+
+ );
+ */
+
+i2c_slave_top u_i2c_slave_top(/*AUTOINST*/);
+
+
+
+
+//
+//assign HREADYS0_ahb_dbg    = HREADY_i2c_slv & HREADYout_i2c_slv;
+//assign HREADYS1_ahb_dbg    = HREADY_dap & HREADYout_dap;
+//assign HREADYOUTM0_ahb_dbg = HREADYMUX_dbg & HREADY_dbg;
+assign HREADYS1_ahb_dbg    = HREADYout_dap;
+//assign HREADYOUTM0_ahb_dbg = HREADY_dbg;
+/* ahb_dbg_mtx  AUTO_TEMPLATE (
+ .HCLK (clk_ahb),
+ .HRESETn (rst_ahb_n),
+ .SCANENABLE (ptest_scan_mode),
+ .SCANINHCLK (1'b0),
+ .REMAP (4'h0),
+ .HREADYOUTS0  (HREADYout_i2c_slv),
+ .HREADYOUTS1  (HREADYout_dap),
+ .HSELS1       (1'b1),
+ .HREADYS0     (HREADY_i2c_slv),
+ .HREADYS1     (HREADYS1_ahb_dbg),
+ .HREADYOUTM0  (HREADY_dbg),
+ .HRESPM0      ({1'b0,HRESP_dbg}),
+ .HMASTERS\(.\) (4'h\1),
+ .HMASTLOCKS.* (1'b0),
+ .\(H.*\)S0    (\1_i2c_slv[]),
+ .\(H.*\)S1    (\1_dap[]),
+ .\(H.*\)S2    (\1_intc[]),
+ .\(H.*\)M0    (\1_dbg[]),
+
+ );
+ */
+
+ahb_dbg_mtx u_ahb_dbg_mtx(/*AUTOINST*/);
+
+
+
+// mbox
+ /*mbox  AUTO_TEMPLATE (
+ .hsel (HSEL_mbox_cfg),
+ .hclk  (clk_ahb),
+ .hresetn  (rst_ahb_n),
+ .haddr  (HADDR_mbox_cfg[31:0]),
+ .hwdata  (HWDATA_mbox_cfg[31:0]),
+ .hwrite  (HWRITE_mbox_cfg),
+ .hsize  (HSIZE_mbox_cfg[1:0]),
+ .htrans  (HTRANS_mbox_cfg[1:0]),
+ .hreadyi  (HREADYin_mbox_cfg),
+ .hreadyo  (HREADYout_mbox_cfg),
+ .hrdata  (HRDATA_mbox_cfg[31:0]),
+ .mboxu0_irq (mboxu0_irq),
+ .mboxu1_irq (mboxu1_irq),
+ .ram_cfg_1p (ram_cfg_1p_sys[]),
+ );
+ */
+
+mbox u_mbox (/*AUTOINST*/);
+
+assign AWADDR_emmc[34:32]   = 3'h0;
+assign ARADDR_emmc[34:32]   = 3'h0;
+assign AWLEN_emmc[7:4]      = 4'h0;
+assign ARLEN_emmc[7:4]      = 4'h0;
+
+// emmc_top
+ /*emmc_top  AUTO_TEMPLATE (
+ .aclk               (clk_axi),
+ .aresetn            (rst_axi_n),
+ .bclk               (clk_emmc),
+ .bresetn            (rst_emmc_n),
+ .hclk              (clk_ahb),
+ .hresetn           (rst_ahb_n),
+ .tmclk             (clk_osc),
+ .tresetn           (rst_osc_n),
+
+ .cclk_tx           (clk_emmc_phy),
+ .cclk_rx_dly       (pad_out_sd_clk),
+ .cclk_rx_fix       (pad_out_sd_clk),
+ .cresetn_tx        (rst_emmc_phy_n),
+ .cresetn_rx        (rst_emmc_phy_n),
+ .card_detect_n     (1'b0),
+ .card_write_prot   (1'b0),
+ .intr              (),
+ .wakeup_intr       (),
+
+ .hsel (HSEL_emmc_cfg),
+ .haddr  (HADDR_emmc_cfg[31:0]),
+ .hsize  (HSIZE_emmc_cfg[2:0]),
+ .htrans  (HTRANS_emmc_cfg[1:0]),
+ .hwrite  (HWRITE_emmc_cfg),
+ .hready  (HREADYin_emmc_cfg),
+ .hwdata  (HWDATA_emmc_cfg[31:0]),
+ .hrdata  (HRDATA_emmc_cfg[31:0]),
+ .hresp   (HRESP_emmc_cfg[1:0]),
+ .hready_resp  (HREADYout_emmc_cfg),
+
+ .\(a\|b\|r\|w\)\(.*\)       (@"(upcase \\"\1\2\\")"_emmc[]),
+ .ram_cfg_1p (ram_cfg_1p_sys[]),
+ );
+ */
+
+emmc_top u_emmc_top (/*AUTOINST*/);
+
+//eth instance
+
+
+ /*gmac_wrap  AUTO_TEMPLATE (
+
+ .phy_intr_i (1'b0),
+ .\(a\|b\|r\|w\)\(.*\)\(_m_o\|_m_i\)       (@"(upcase \\"\1\2\\")"_eth[]),
+ .csysreq_i   (1'b0),
+ .hreadyslv_i (HREADYin_eth_cfg),
+ .hready_o    (HREADYout_eth_cfg),      
+ .\(h.*\)_i  (@"(upcase \\"\1\\")"_eth_cfg[]),
+ .\(h.*\)_o  (@"(upcase \\"\1\\")"_eth_cfg[]),
+ .ram_cfg_2p   (ram_cfg_2p_sys[]),   
+
+);
+*/
+gmac_wrap u_gmac_wrap(/*AUTOINST*/);
+
+
+endmodule
+
+// Local Variables:
+// verilog-auto-inst-param-value:t
+// verilog-library-extensions: (".v" ".vh" ".sv")
+// verilog-library-directories: ("." "./gen" "./ahb_dbg_mtx"
+//                               "../../clk/rtl"
+//                               "../../cm4/rtl/gen"
+//                               "../../cpu_sys/rtl"
+//                               "../../ca53_sys/rtl"
+//                               "../../ahb_main_mtx/rtl/ahb_main_mtx"
+//                               "../../ahb_per/rtl"
+//                               "../../apb_per/rtl"
+//                               "../../ve_sys/rtl/top"
+//                               "../../cpu_sys/rtl/gen"
+//                               "../../vpp_sys/rtl"
+//                               "../../dw_pcie/dm_top"
+//                               "../../dmc_sys/rtl_lp64"
+//                               "../../ai_sys/rtl"
+//                               "../../ai_sys/rtl/vip9000"
+//                               "../../ahbsram/rtl"
+//                               "../../spiflash/rtl"
+//                               "../../io_mux/rtl"
+//                               "../../intc/rtl"
+//                               "../../i2c_slave/rtl"
+//                               "../../busmon/axi_perf_mon/rtl"
+//                               "../../bus/nic400_main_mtx/nic400/verilog"
+//                               "../../bus/xhb400/verilog"
+//                               "../../bus/axi_x2h"
+//                               "../../dma/rtl"
+//                               "../../dbg_sys/rtl"
+//                               "../../busmon/aximon"
+//                               "../../mbox"
+//                               "../../emmc/rtl"
+//                               "../../gmac"
+// );
+// End:
